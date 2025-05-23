@@ -5,10 +5,11 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# Clase principal del gestor de tareas
 class GestorTareas:
+    """Clase principal para la gestión de tareas con interfaz gráfica en Tkinter."""
+
     def __init__(self, root):
-        """Inicializacion de la aplicación, definicion de variables y construccion de la interfaz gráfica."""
+        """Inicializa la aplicación, variables y construye la interfaz gráfica."""
         self.root = root
         self.root.title("Gestor de Tareas")
         self.root.geometry("1100x700")
@@ -19,8 +20,7 @@ class GestorTareas:
         self.build_gui()
 
     def build_gui(self):
-        """Construye la interfaz gráfica del usuario (GUI)."""
-        # División de la ventana en paneles izquierdo y derecho
+        """Construye la interfaz gráfica del usuario."""
         main_frame = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -29,11 +29,9 @@ class GestorTareas:
         main_frame.add(left_panel)
         main_frame.add(right_panel)
 
-        # Formulario para ingresar nueva tarea
         form_frame = ttk.LabelFrame(left_panel, text="Nueva Tarea", padding=10)
         form_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        # Variables del formulario
         self.vars = {
             'title': tk.StringVar(),
             'description': tk.StringVar(),
@@ -43,7 +41,6 @@ class GestorTareas:
             'tags': tk.StringVar()
         }
 
-        # Campos del formulario
         campos = [
             ("Título", 'title'), ("Descripción", 'description'),
             ("Fecha Límite", 'due_date'), ("Prioridad", 'priority'),
@@ -58,11 +55,9 @@ class GestorTareas:
             else:
                 ttk.Entry(form_frame, textvariable=self.vars[key]).grid(row=i, column=1, pady=2)
 
-        # Botones del formulario
         ttk.Button(form_frame, text="Calendario", command=self.abrir_calendario).grid(row=2, column=2)
         ttk.Button(form_frame, text="Agregar", command=self.agregar_tarea).grid(row=6, column=1, pady=10)
 
-        # Lista de tareas en una tabla
         lista_frame = ttk.LabelFrame(left_panel, text="Lista de Tareas")
         lista_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -71,14 +66,12 @@ class GestorTareas:
             self.tasks_tree.heading(col, text=col.title())
         self.tasks_tree.pack(fill=tk.BOTH, expand=True)
 
-        # Botones para manejar las tareas seleccionadas
         btns = ttk.Frame(lista_frame)
         btns.pack(pady=5)
         ttk.Button(btns, text="Detalles", command=self.ver_detalles).pack(side=tk.LEFT, padx=5)
         ttk.Button(btns, text="Editar", command=self.editar_tarea).pack(side=tk.LEFT, padx=5)
         ttk.Button(btns, text="Eliminar", command=self.eliminar_tarea).pack(side=tk.LEFT, padx=5)
 
-        # Calendario visual en panel derecho
         calendario_frame = ttk.LabelFrame(right_panel, text="Calendario")
         calendario_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         self.calendar = Calendar(calendario_frame, selectmode='day', date_pattern='yyyy-mm-dd')
@@ -86,7 +79,6 @@ class GestorTareas:
 
         ttk.Button(calendario_frame, text="Ver Calendario con Tareas", command=self.mostrar_tareas_calendario).pack(pady=10)
 
-        # Visualización de la línea de tiempo
         timeline_frame = ttk.LabelFrame(right_panel, text="Línea de Tiempo")
         timeline_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         ttk.Button(timeline_frame, text="Mostrar Línea de Tiempo", command=self.mostrar_timeline).pack()
@@ -99,9 +91,17 @@ class GestorTareas:
         ttk.Button(top, text="Seleccionar", command=lambda: self._guardar_fecha(cal.get_date(), top)).pack(pady=10)
 
     def _guardar_fecha(self, fecha, ventana):
-        """Guarda la fecha seleccionada en el campo correspondiente."""
-        self.vars['due_date'].set(fecha)
-        ventana.destroy()
+        """Guarda la fecha seleccionada si es futura; muestra error si es pasada."""
+        hoy = datetime.now().date()
+        try:
+            seleccionada = datetime.strptime(fecha, "%Y-%m-%d").date()
+            if seleccionada < hoy:
+                messagebox.showerror("Fecha inválida", "La fecha de vencimiento debe ser futura.")
+                return
+            self.vars['due_date'].set(fecha)
+            ventana.destroy()
+        except ValueError:
+            messagebox.showerror("Error", "Formato de fecha inválido.")
 
     def agregar_tarea(self):
         """Agrega una nueva tarea a la lista."""
@@ -138,15 +138,20 @@ class GestorTareas:
         return (task, selected_item) if task else None
 
     def ver_detalles(self):
-        """Muestra los detalles de la tarea seleccionada."""
+        """Muestra los detalles de la tarea seleccionada en una nueva ventana."""
         seleccionado = self.get_selected_task()
         if not seleccionado: return
         task, _ = seleccionado
         detalles = tk.Toplevel(self.root)
         detalles.title("Detalles")
+        traducciones = {
+            'title': "Título", 'description': "Descripción", 'due_date': "Fecha Límite",
+            'priority': "Prioridad", 'status': "Estado", 'tags': "Etiquetas"
+        }
         for k, v in task.items():
             if isinstance(v, list): v = ", ".join(v)
-            ttk.Label(detalles, text=f"{k.title()}: {v}").pack(anchor=tk.W, padx=10, pady=2)
+            etiqueta = traducciones.get(k, k)
+            ttk.Label(detalles, text=f"{etiqueta}: {v}").pack(anchor=tk.W, padx=10, pady=2)
 
     def editar_tarea(self):
         """Permite editar la tarea seleccionada."""
@@ -172,6 +177,14 @@ class GestorTareas:
                 ttk.Entry(edit_win, textvariable=campos[key]).grid(row=i, column=1)
 
         def guardar():
+            try:
+                if datetime.strptime(campos['due_date'].get(), "%Y-%m-%d").date() < datetime.now().date():
+                    messagebox.showerror("Error", "La fecha debe ser futura.")
+                    return
+            except ValueError:
+                messagebox.showerror("Error", "Fecha inválida.")
+                return
+
             task.update({
                 'title': campos['title'].get(),
                 'description': campos['description'].get(),
@@ -195,7 +208,7 @@ class GestorTareas:
             self.actualizar_lista()
 
     def mostrar_tareas_calendario(self):
-        """Muestra un calendario con las tareas marcadas por colores según prioridad."""
+        """Muestra un calendario con tareas marcadas por colores según prioridad."""
         cal_win = tk.Toplevel(self.root)
         cal_win.title("Calendario con Tareas")
         big_cal = Calendar(cal_win, selectmode='day', date_pattern='yyyy-mm-dd')
@@ -249,6 +262,7 @@ class GestorTareas:
         canvas = FigureCanvasTkAgg(fig, master=win)
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         canvas.draw()
+
 
 # Punto de entrada del programa
 if __name__ == "__main__":
